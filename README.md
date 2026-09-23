@@ -12,6 +12,119 @@ confirmados — se buscó fuente y no existe una válida para el uso que
 necesita este proyecto, no una carga pendiente (ver "Fuentes
 bibliográficas cargadas y nota metodológica" más abajo).
 
+## Puesta en marcha paso a paso
+
+El Arduino **no detecta** qué planta tiene: el perfil se elige una vez
+por Serial y queda guardado en EEPROM, así que sobrevive a un apagón.
+Estos son los pasos, en orden. Los pasos 2 y 3 son obligatorios: hasta
+que no se hagan, el riego automático se queda inhibido a propósito.
+
+### 0. Cargar el firmware
+
+Abrí la carpeta como sketch en el Arduino IDE (debe contener
+`protocolo_serial.ino`, `plantas.h`, `plantas.cpp`, `plantas_lib.ino`,
+`config_persistente.h` y `config_persistente.cpp` todos juntos), elegí
+la placa **Arduino Uno** y subí.
+
+Después abrí el Monitor Serial a **9600 baudios** con final de línea
+**"Nueva línea"** (`\n`), o abrí `plantabot.html` en Chrome/Edge, que
+hace lo mismo con botones. Todo lo que sigue son comandos que se
+escriben ahí, uno por línea.
+
+Apenas arranca, si todavía no está calibrado, el firmware avisa solo
+con `AVISO;SIN_CALIBRAR`.
+
+### 1. Ver qué plantas hay
+
+```
+LISTAR
+```
+
+Devuelve una línea `PERFIL;<índice>;...` por especie y termina con
+`OK;LISTAR;14`. El **índice** es lo único que hay que anotar:
+
+| Índice | Planta | Índice | Planta |
+|---|---|---|---|
+| 0 | Aloe vera | 7 | Albahaca |
+| 1 | Nopal | 8 | Violeta africana |
+| 2 | Romero | 9 | Lengua de suegra |
+| 3 | Lavanda | 10 | Helecho de Boston |
+| 4 | Potus | 11 | Orquídea mariposa |
+| 5 | Lirio de la paz | 12 | Culantro coyote |
+| 6 | Tomate | 13 | Chile dulce |
+
+### 2. Calibrar el sensor de humedad (obligatorio)
+
+Hay que hacerlo **una sola vez por sensor**, y hay que hacerlo antes de
+seleccionar nada: el umbral de cada perfil está en la escala calibrada,
+no en el valor crudo del ADC.
+
+```
+CAL;SECO      <- con el sensor limpio, seco y al aire
+CAL;AGUA      <- con la punta sumergida en agua, sin mojar la placa
+```
+
+Cada uno responde `OK;CAL;SECO;<valor>` / `OK;CAL;AGUA;<valor>` y
+guarda en EEPROM. `CAL;RESET` vuelve a fábrica si hay que empezar de
+nuevo. Detalle completo en "Calibración de dos puntos" más abajo.
+
+### 3. Elegir la planta
+
+Con el índice del paso 1:
+
+```
+SELECT;8
+```
+
+Responde `OK;SELECT;8` y lo guarda en EEPROM. Desde ese momento el
+riego automático usa el `umbralRiego`, `dosisMs` y `esperaHoras` de esa
+especie. Para cambiar de planta, se manda otro `SELECT` y listo — no
+hace falta recompilar nada.
+
+### 4. Verificar que quedó todo bien
+
+```
+ESTADO
+```
+
+Devuelve `ESTADO;<perfilActivo>;<humedadPct>;<crudo>;<tempC>;<humAmbiente>;<lux>;<nivelAgua>;<calibrada>;<horasDesdeUltimoRiego>;<motivoInhibicion>`.
+
+Lo que hay que mirar:
+
+- `<perfilActivo>` debe ser el índice que elegiste.
+- `<calibrada>` debe estar en `1`.
+- `<motivoInhibicion>` vacío significa que el riego automático está
+  habilitado. Si dice algo, ahí está el problema: `SIN_CALIBRAR`,
+  `SIN_AGUA`, `ESPERA_ACTIVA` o `SUELO_HUMEDO`.
+- `<humedadPct>` tiene que moverse: probá sacar el sensor de la tierra
+  y volver a meterlo. Si queda clavado en 0 o 100, la calibración del
+  paso 2 salió mal.
+
+### 5. Probar el riego a mano antes de dejarlo solo
+
+```
+RIEGO;MANUAL
+```
+
+Enciende la bomba por la dosis del perfil activo y responde
+`OK;RIEGO;MANUAL;<dosisMs>`. Si en vez de eso responde `ERR;SIN_AGUA`,
+`ERR;SIN_CALIBRAR` o `ERR;ESPERA_ACTIVA`, resolvé eso primero. Con este
+comando se comprueba que la bomba, el MOSFET y el flotador están bien
+conectados **sin** depender de que el suelo esté seco.
+
+Hecho esto, el sistema ya trabaja solo: revisa humedad y nivel de agua,
+y riega cuando el suelo baja del umbral, hay agua en el depósito y pasó
+la espera mínima del perfil.
+
+### Notas de manejo de dos especies
+
+- **Violeta africana (8):** el gotero debe descargar en el sustrato, no
+  sobre la roseta. El agua sobre la hoja pilosa mancha y favorece
+  pudrición.
+- **Orquídea mariposa (11):** va en corteza, no en tierra, así que la
+  lectura del sensor capacitivo en su sustrato no es comparable con la
+  de las demás especies de la tabla.
+
 ## Archivos
 
 | Archivo | Rol |
