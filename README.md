@@ -19,20 +19,62 @@ por Serial y queda guardado en EEPROM, así que sobrevive a un apagón.
 Estos son los pasos, en orden. Los pasos 2 y 3 son obligatorios: hasta
 que no se hagan, el riego automático se queda inhibido a propósito.
 
-### 0. Cargar el firmware
+### 0. Cargar el firmware al Arduino
 
-Abrí la carpeta como sketch en el Arduino IDE (debe contener
-`protocolo_serial.ino`, `plantas.h`, `plantas.cpp`, `plantas_lib.ino`,
-`config_persistente.h` y `config_persistente.cpp` todos juntos), elegí
-la placa **Arduino Uno** y subí.
+**0.1 — Instalar las dos librerías.** El firmware usa `DHT.h` y
+`BH1750.h`, que no vienen con el IDE. En el Arduino IDE, menú
+**Herramientas → Administrar bibliotecas** (`Ctrl+Shift+I`), buscar e
+instalar:
 
-Después abrí el Monitor Serial a **9600 baudios** con final de línea
-**"Nueva línea"** (`\n`), o abrí `plantabot.html` en Chrome/Edge, que
-hace lo mismo con botones. Todo lo que sigue son comandos que se
-escriben ahí, uno por línea.
+1. **DHT sensor library**, de Adafruit. Al instalarla el IDE va a
+   ofrecer instalar también **Adafruit Unified Sensor**: aceptar, es
+   una dependencia obligatoria.
+2. **BH1750**, de Christopher Laws.
+
+`EEPROM.h` y `Wire.h` ya vienen incluidas, no hay que instalar nada
+para ellas.
+
+**0.2 — Abrir el sketch.** Abrir `biblotecas.ino` con
+**Archivo → Abrir**. El IDE carga toda la carpeta de una y muestra una
+pestaña por archivo. Si en vez de eso aparece un error de que la
+carpeta no es un sketch válido, es porque el nombre de la carpeta y el
+del `.ino` no coinciden: tienen que ser iguales (por eso existe
+`biblotecas.ino`). Al clonar el repositorio, la carpeta se llama
+`smart-plant-bot`, así que hay que renombrarla a `smart_plant_bot`
+—con guion bajo, el IDE no acepta guiones medios— y renombrar
+`biblotecas.ino` a `smart_plant_bot.ino`.
+
+**0.3 — Elegir placa y puerto.** **Herramientas → Placa → Arduino AVR
+Boards → Arduino Uno**, y **Herramientas → Puerto**, el COM que
+aparezca al conectar la placa (en Windows suele ser `COM3` o más
+alto). Si no aparece ninguno, el cable es de solo carga o falta el
+driver CH340 de la placa.
+
+**0.4 — Verificar antes de subir.** Botón ✓ (`Ctrl+R`). Tiene que
+terminar en "Compilación completada". Errores típicos:
+
+| Error | Causa |
+|---|---|
+| `DHT.h: No such file or directory` | Falta el paso 0.1 |
+| `BH1750.h: No such file or directory` | Falta instalar BH1750 |
+| `redefinition of 'void setup()'` | Se abrió `demo_perfiles.ino` junto al firmware. Son dos sketches distintos, no van en la misma carpeta |
+
+**0.5 — Subir.** Botón → (`Ctrl+U`). Termina en "Subida completa". Si
+da `avrdude: ser_open(): can't open device`, el Monitor Serial está
+abierto ocupando el puerto: cerralo y reintentá.
+
+**0.6 — Abrir el Monitor Serial.** `Ctrl+Shift+M`. Abajo a la derecha
+poner **9600 baudios** y el final de línea en **"Nueva línea"** (`\n`);
+si queda en "Sin ajuste de línea" los comandos nunca se ejecutan,
+porque el firmware espera un `\n` para dar la línea por terminada.
+
+Alternativa sin Monitor Serial: abrir `plantabot.html` en Chrome o Edge
+(no funciona en Firefox, que no tiene Web Serial API) y hacer todo con
+botones.
 
 Apenas arranca, si todavía no está calibrado, el firmware avisa solo
-con `AVISO;SIN_CALIBRAR`.
+con `AVISO;SIN_CALIBRAR`. Todo lo que sigue son comandos que se
+escriben en el Monitor Serial, uno por línea, y se mandan con Enter.
 
 ### 1. Ver qué plantas hay
 
@@ -135,6 +177,7 @@ la espera mínima del perfil.
 | `datos/plantas.csv` | Fuente de verdad de los perfiles. Editar acá. |
 | `csv_a_header.py` | Regenera `plantas.cpp` desde el CSV. |
 | `config_persistente.h/.cpp` | Persistencia en EEPROM (perfil activo + calibración). |
+| `biblotecas.ino` | Archivo ancla, sin código: el IDE exige un `.ino` con el nombre de la carpeta. |
 | `protocolo_serial.ino` | **Firmware principal**: único `setup()`/`loop()` del sketch. |
 | `puente_serial.py` | Puente HTTP opcional para navegadores sin Web Serial API. |
 | `ejemplos/demo_perfiles/` | Sketch aparte, solo para probar la biblioteca de perfiles aislada. |
