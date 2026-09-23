@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Plant Bot — Panel de control</title>
+<style>
+  /* =========================================================
+     PALETA Y BASE
+     Verde (planta) + tierra (maceta), sobrio, sin degradados
+     llamativos: es un proyecto académico, no un juguete.
+     ========================================================= */
+  :root {
+    --verde-900: #1b3a2a;
+    --verde-700: #2f6b4a;
+    --verde-600: #3a7d57;
+    --verde-500: #4c9a6b;
+    --verde-300: #8fc9a6;
+    --verde-100: #e6f4ec;
+    --tierra-700: #5c3d24;
+    --tierra-500: #8a5a34;
+    --tierra-300: #cf9f6c;
+    --fondo: #f6f4ee;
+    --panel: #ffffff;
+    --texto: #22291f;
+    --texto-suave: #5a6357;
+    --borde: #ddd7c7;
+    --alerta-bg: #fbeae7;
+    --alerta-borde: #c8503b;
+    --alerta-texto: #7d2c1d;
+    --info-bg: #fff5df;
+    --info-borde: #c99a34;
+    --info-texto: #64480d;
+    --ok-bg: #e9f6ee;
+    --ok-borde: #4c9a6b;
+    --ok-texto: #1f5c3a;
+    --sombra: 0 2px 10px rgba(30, 40, 25, 0.08);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--texto);
+    font-family: "Segoe UI", Verdana, Arial, sans-serif;
+    line-height: 1.45;
+  }
+
+  a { color: var(--verde-700); }
+
+  h1, h2, h3 { color: var(--verde-900); margin-top: 0; }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid var(--verde-700);
+    background: var(--verde-700);
+    color: #fff;
+    border-radius: 6px;
+    padding: 0.55em 1.1em;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+  }
+  button:hover:not(:disabled) { background: var(--verde-600); }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+  button.secundario {
+    background: transparent;
+    color: var(--verde-700);
+  }
+  button.secundario:hover:not(:disabled) { background: var(--verde-100); }
+  button.peligro {
+    background: transparent;
+    border-color: var(--alerta-borde);
+    color: var(--alerta-borde);
+  }
+  button.peligro:hover:not(:disabled) { background: var(--alerta-bg); }
+
+  select, input[type="text"] {
+    font: inherit;
+    padding: 0.45em 0.6em;
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--texto);
+  }
+
+  /* =========================================================
+     ESTRUCTURA GENERAL
+     ========================================================= */
+  header.encabezado {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--verde-900);
+    color: #fff;
+    padding: 0.8em 1.2em;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6em 1.2em;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--sombra);
+  }
+  header.encabezado h1 {
+    color: #fff;
+    font-size: 1.25rem;
+    margin: 0;
+  }
+  header.encabezado p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--verde-300);
+  }
+
+  /* Indicador de conexión: siempre visible en el encabezado */
+  .indicador-conexion {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    font-size: 0.9rem;
+    background: rgba(255,255,255,0.08);
+    padding: 0.4em 0.8em;
+    border-radius: 999px;
+  }
+  .indicador-conexion .punto {
+    width: 0.7em;
+    height: 0.7em;
+    border-radius: 50%;
+    background: #999;
+    flex: none;
+  }
+  .indicador-conexion[data-estado="conectado"] .punto { background: #6fd08c; }
+  .indicador-conexion[data-estado="conectando"] .punto { background: #e0c25a; }
+  .indicador-conexion[data-estado="desconectado"] .punto { background: #d97a6c; }
+
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 1.2em;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2em;
+  }
+
+  section {
+    background: var(--panel);
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    padding: 1.1em 1.3em;
+    box-shadow: var(--sombra);
+  }
+
+  .columnas {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) minmax(340px, 1.4fr);
+    gap: 1.2em;
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .columnas { grid-template-columns: 1fr; }
+  }
+
+  .columna-izquierda, .columna-derecha {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2em;
+  }
+
+  footer.pie {
+    max-width: 1180px;
+    margin: 0 auto 2em;
+    padding: 0 1.2em;
+    color: var(--texto-suave);
+    font-size: 0.85rem;
+  }
+
+  .oculto { display: none !important; }
+
+  /* =========================================================
+     PANEL DE CONEXIÓN
+     ========================================================= */
+  #panelSinWebSerial {
+    border-color: var(--alerta-borde);
+    background: var(--alerta-bg);
+    color: var(--alerta-texto);
+  }
+
+  .mensaje {
+    border-radius: 8px;
+    padding: 0.7em 0.9em;
+    margin-top: 0.7em;
+    font-size: 0.92rem;
+  }
+  .mensaje.ok { background: var(--ok-bg); color: var(--ok-texto); border: 1px solid var(--ok-borde); }
+  .mensaje.alerta { background: var(--alerta-bg); color: var(--alerta-texto); border: 1px solid var(--alerta-borde); }
+  .mensaje.info { background: var(--info-bg); color: var(--info-texto); border: 1px solid var(--info-borde); }
+
+  .fila-conexion {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6em;
+    align-items: center;
+  }
+
+  details.opcion-puente {
+    margin-top: 0.9em;
+    border-top: 1px dashed var(--borde);
+    padding-top: 0.8em;
+  }
+  details.opcion-puente summary {
+    cursor: pointer;
+    color: var(--verde-700);
+    font-weight: 600;
+  }
+  details.opcion-puente .fila-conexion { margin-top: 0.6em; }
+  #inputUrlPuente { min-width: 220px; }
+
+  /* =========================================================
+     MASCOTA (SVG)
+     ========================================================= */
+  .panel-mascota { text-align: center; }
+  .mascota-contenedor {
+    width: 100%;
+    max-width: 240px;
+    margin: 0 auto;
+  }
+  .mascota-contenedor svg { width: 100%; height: auto; display: block; }
+
+  .maceta { fill: var(--tierra-500); stroke: var(--tierra-700); stroke-width: 2; }
+  .tierra { fill: var(--tierra-700); transition: fill 0.4s ease; }
+  .tallo { fill: none; stroke: var(--verde-700); stroke-width: 5; stroke-linecap: round; }
+  .hoja path { fill: var(--verde-500); stroke: var(--verde-700); stroke-width: 1.5; }
+  .hoja { transform-box: fill-box; transform-origin: 50% 100%; transition: transform 0.6s ease, opacity 0.4s ease, filter 0.4s ease; }
+
+  .gotas { opacity: 0; transition: opacity 0.3s ease; }
+  .gota { fill: #6fb8e6; opacity: 0; }
+
+  .velo-oscuridad { fill: #10241a; opacity: 0; transition: opacity 0.6s ease; }
+
+  .cara path, .cara circle { fill: none; stroke: var(--verde-900); stroke-width: 2.4; stroke-linecap: round; }
+  .cara .variante { opacity: 0; transition: opacity 0.3s ease; }
+  .cara circle.variante { fill: var(--verde-900); stroke: none; }
+
+  .insignia-alerta { opacity: 0; transition: opacity 0.3s ease; }
+  .insignia-alerta circle { fill: var(--alerta-borde); }
+  .insignia-alerta text { fill: #fff; font-size: 20px; font-weight: bold; }
+
+  /* Variantes de cara visibles según data-estado */
+  .mascota-contenedor[data-estado="feliz"] .variante-feliz,
+  .mascota-contenedor[data-estado="regada"] .variante-feliz { opacity: 1; }
+  .mascota-contenedor[data-estado="sedienta"] .variante-sedienta { opacity: 1; }
+  .mascota-contenedor[data-estado="dormida"] .variante-dormida { opacity: 1; }
+  .mascota-contenedor[data-estado="alerta"] .variante-alerta { opacity: 1; }
+
+  /* Postura de las hojas y otros elementos según estado (funciona
+     igual con o sin animación: esto es el estado final "estático") */
+  .mascota-contenedor[data-estado="sedienta"] .hoja {
+    transform: rotate(16deg) translateY(6px);
+    filter: saturate(0.65);
+  }
+  .mascota-contenedor[data-estado="dormida"] .hoja { transform: scaleY(0.92); }
+  .mascota-contenedor[data-estado="dormida"] .velo-oscuridad { opacity: 0.32; }
+  .mascota-contenedor[data-estado="alerta"] .planta-completa { filter: grayscale(0.4); }
+  .mascota-contenedor[data-estado="alerta"] .insignia-alerta { opacity: 1; }
+  .mascota-contenedor[data-estado="regada"] .gotas { opacity: 1; }
+  .mascota-contenedor[data-estado="regada"] .tierra { fill: #3d2814; }
+
+  /* Animaciones: solo si el usuario no pidió movimiento reducido */
+  @media (prefers-reduced-motion: no-preference) {
+    .mascota-contenedor[data-estado="feliz"] .hoja,
+    .mascota-contenedor[data-estado="regada"] .hoja {
+      animation: balanceo 3.6s ease-in-out infinite alternate;
+    }
+    .hoja-2, .hoja-4 { animation-delay: 0.35s; }
+
+    @keyframes balanceo {
+      from { transform: rotate(-3deg); }
+      to   { transform: rotate(3deg); }
+    }
+
+    .mascota-contenedor[data-estado="alerta"] .planta-completa {
+      animation: temblor 0.5s ease-in-out infinite;
+    }
+    @keyframes temblor {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-1.5px); }
+      75% { transform: translateX(1.5px); }
+    }
+
+    .mascota-contenedor[data-estado="alerta"] .insignia-alerta {
+      animation: pulso 1s ease-in-out infinite;
+    }
+    @keyframes pulso {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.15); opacity: 0.75; }
+    }
+
+    .mascota-contenedor[data-estado="regada"] .gota {
+      animation: caer 1.4s ease-in infinite;
+    }
+    .gota-2 { animation-delay: 0.3s; }
+    .gota-3 { animation-delay: 0.6s; }
+    @keyframes caer {
+      0%   { transform: translateY(-14px); opacity: 0; }
+      15%  { opacity: 1; }
+      100% { transform: translateY(30px); opacity: 0; }
+    }
+
+    .mascota-contenedor[data-estado="regada"] .hoja {
+      animation: rebote 0.6s ease-out 1;
+    }
+    @keyframes rebote {
+      0%   { transform: scale(1) rotate(0deg); }
+      40%  { transform: scale(1.08) rotate(2deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+  }
+
+  .texto-estado-mascota {
+    margin-top: 0.6em;
+    font-weight: 600;
+    color: var(--verde-900);
+  }
+
+  /* =========================================================
+     PANEL DE ESTADO / LECTURAS
+     ========================================================= */
+  .grilla-lecturas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.7em;
+    margin-top: 0.8em;
+  }
+  .tarjeta-lectura {
+    background: var(--verde-100);
+    border: 1px solid var(--verde-300);
+    border-radius: 8px;
+    padding: 0.6em 0.8em;
+    transition: opacity 0.3s ease;
+  }
+  .tarjeta-lectura .etiqueta {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--texto-suave);
+    margin-bottom: 0.15em;
+  }
+  .tarjeta-lectura .valor {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--verde-900);
+  }
+  .tarjeta-lectura.atenuado { opacity: 0.45; }
+
+  #notaSinAmbiental {
+    margin-top: 0.6em;
+  }
+
+  .banner-motivo {
+    margin-top: 1em;
+    border-radius: 8px;
+    padding: 0.8em 1em;
+    border: 1px solid;
+  }
+  .banner-motivo.banner-alerta {
+    background: var(--alerta-bg);
+    border-color: var(--alerta-borde);
+    color: var(--alerta-texto);
+  }
+  .banner-motivo.banner-info {
+    background: var(--info-bg);
+    border-color: var(--info-borde);
+    color: var(--info-texto);
+  }
+  .banner-motivo-titulo { font-weight: 700; margin-bottom: 0.2em; }
+
+  /* =========================================================
+     PERFILES
+     ========================================================= */
+  #detallePerfil {
+    margin-top: 0.7em;
+    font-size: 0.92rem;
+  }
+  #detallePerfil .categoria-pill {
+    display: inline-block;
+    background: var(--verde-100);
+    color: var(--verde-900);
+    border-radius: 999px;
+    padding: 0.1em 0.7em;
+    font-size: 0.8rem;
+    margin-left: 0.4em;
+  }
+
+  /* =========================================================
+     CALIBRACIÓN
+     ========================================================= */
+  .paso-calibracion { margin-top: 0.8em; }
+  .lectura-en-vivo {
+    display: inline-block;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--verde-900);
+    background: var(--verde-100);
+    border-radius: 8px;
+    padding: 0.2em 0.7em;
+    margin: 0.5em 0;
+  }
+  .pasos-indicador {
+    display: flex;
+    gap: 0.4em;
+    margin-bottom: 0.8em;
+  }
+  .pasos-indicador span {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--borde);
+  }
+  .pasos-indicador span.activo { background: var(--verde-600); }
+
+  /* =========================================================
+     REGISTRO
+     ========================================================= */
+  #panelRegistro summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--verde-900);
+  }
+  #listaRegistro {
+    margin-top: 0.7em;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #101a13;
+    color: #d7ecdd;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 0.8rem;
+    border-radius: 8px;
+    padding: 0.6em 0.8em;
+  }
+  .linea-registro { white-space: pre-wrap; word-break: break-all; }
+  .linea-tx { color: #9fd8b0; }
+  .linea-rx { color: #d7ecdd; }
+</style>
+</head>
+<body>
+
+  <header class="encabezado">
+    <div>
+      <h1>Smart Plant Bot</h1>
+      <p>Panel de configuración y monitoreo — proyecto de Física II, Ing. Mecatrónica</p>
+    </div>
+    <div class="indicador-conexion" id="indicadorConexion" data-estado="desconectado">
+      <span class="punto"></span>
+      <span id="textoIndicadorConexion">Desconectado</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ================= CONEXIÓN ================= -->
+    <section id="panelConexion">
+      <h2>Conexión</h2>
+      <p>
+        Este panel habla con el Arduino por el protocolo de texto de
+        <code>protocolo_serial.ino</code>, ya sea directo por el puerto USB
+        (Web Serial API) o a través del puente HTTP opcional
+        (<code>puente_serial.py</code>).
+      </p>
+
+      <div class="fila-conexion">
+        <button id="botonConectar" type="button">Conectar por USB (Web Serial)</button>
+        <button id="botonDesconectar" type="button" class="secundario oculto">Desconectar</button>
+      </div>
+
+      <div id="mensajeConexion" class="mensaje oculto"></div>
+
+      <details class="opcion-puente" id="detallesPuente">
+        <summary>Usar el puente HTTP en su lugar (puente_serial.py)</summary>
+        <p>
+          Para navegadores sin Web Serial API, o si preferís correr
+          <code>puente_serial.py</code> en la misma máquina que el Arduino.
+          Por defecto escucha en <code>http://127.0.0.1:8765</code>.
+        </p>
+        <div class="fila-conexion">
+          <input type="text" id="inputUrlPuente" value="http://127.0.0.1:8765" aria-label="URL del puente HTTP">
+          <button id="botonConectarPuente" type="button" class="secundario">Conectar al puente</button>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============ AVISO SIN WEB SERIAL ============ -->
+    <section id="panelSinWebSerial" class="oculto" role="alert">
+      <h2>Este navegador no soporta Web Serial API</h2>
+      <p>
+        La conexión directa por USB necesita <strong>Web Serial API</strong>,
+        disponible solo en navegadores de escritorio basados en Chromium:
+        <strong>Google Chrome, Microsoft Edge u Opera</strong>. No funciona en
+        <strong>Firefox</strong>, <strong>Safari</strong>, ni en navegadores
+        de <strong>celular o tablet</strong> (ningún navegador móvil la
+        soporta todavía).
+      </p>
+      <p>
+        Alternativa: corré <code>puente_serial.py</code> en una computadora
+        con Chrome/Edge/Opera — o en cualquier computadora, para cualquier
+        navegador — y conectá este panel al puente HTTP usando la opción
+        de abajo.
+      </p>
+    </section>
+
+    <!-- Contenido que solo tiene sentido con sesión activa -->
+    <div id="contenidoSesion" class="oculto">
+
+      <div class="columnas">
+
+        <!-- ================= COLUMNA IZQUIERDA: MASCOTA + ESTADO ================= -->
+        <div class="columna-izquierda">
+
+          <section class="panel-mascota">
+            <h2>Estado de la planta</h2>
+            <div class="mascota-contenedor" id="mascotaContenedor" data-estado="feliz">
+              <svg viewBox="0 0 200 220" role="img" aria-label="Ilustración de la planta según su estado actual">
+                <g class="planta-completa">
+                  <!-- Maceta y tierra -->
+                  <path class="maceta" d="M55,170 L145,170 L134,214 L66,214 Z" />
+                  <ellipse class="tierra" cx="100" cy="170" rx="46" ry="10" />
+
+                  <!-- Gotas de agua: visibles solo en estado "regada" -->
+                  <g class="gotas">
+                    <path class="gota gota-1" d="M72,55 q6,10 0,17 q-6,-7 0,-17 Z" />
+                    <path class="gota gota-2" d="M128,48 q6,10 0,17 q-6,-7 0,-17 Z" />
+                    <path class="gota gota-3" d="M100,36 q6,10 0,17 q-6,-7 0,-17 Z" />
+                  </g>
+
+                  <!-- Tallo -->
+                  <path class="tallo" d="M100,170 C100,145 100,120 100,100" />
+
+                  <!-- Hojas -->
+                  <g class="hoja hoja-1"><path d="M100,132 C70,122 54,96 65,75 C90,86 100,111 100,132 Z" /></g>
+                  <g class="hoja hoja-2"><path d="M100,132 C130,122 146,96 135,75 C110,86 100,111 100,132 Z" /></g>
+                  <g class="hoja hoja-3"><path d="M100,110 C79,96 74,70 90,55 C105,70 105,96 100,110 Z" /></g>
+                  <g class="hoja hoja-4"><path d="M100,110 C121,96 126,70 110,55 C95,70 95,96 100,110 Z" /></g>
+
+                  <!-- Cara -->
+                  <g class="cara" transform="translate(100,97)">
+                    <!-- Ojos por variante -->
+                    <circle class="variante variante-feliz" cx="-10" cy="0" r="3" />
+                    <circle class="variante variante-feliz" cx="10" cy="0" r="3" />
+
+                    <path class="variante variante-sedienta" d="M-15,-3 Q-10,3 -5,-3" />
+                    <path class="variante variante-sedienta" d="M5,-3 Q10,3 15,-3" />
+
+                    <path class="variante variante-dormida" d="M-15,0 H-5" />
+                    <path class="variante variante-dormida" d="M5,0 H15" />
+
+                    <circle class="variante variante-alerta" cx="-10" cy="0" r="4.4" />
+                    <circle class="variante variante-alerta" cx="10" cy="0" r="4.4" />
+
+                    <!-- Bocas por variante -->
+                    <path class="variante variante-feliz" d="M-8,11 Q0,17 8,11" />
+                    <path class="variante variante-sedienta" d="M-8,15 Q0,9 8,15" />
+                    <path class="variante variante-dormida" d="M-6,13 H6" />
+                    <path class="variante variante-alerta" d="M-6,14 Q0,10 6,14 Q0,19 -6,14 Z" />
+                  </g>
+                </g>
+
+                <!-- Velo de oscuridad: estado "dormida" -->
+                <rect class="velo-oscuridad" x="0" y="0" width="200" height="220" rx="10" />
+
+                <!-- Insignia de alerta: estados SIN_CALIBRAR / SIN_AGUA -->
+                <g class="insignia-alerta">
+                  <circle cx="168" cy="52" r="16" />
+                  <text x="168" y="59" text-anchor="middle">!</text>
+                </g>
+              </svg>
+            </div>
+            <p class="texto-estado-mascota" id="textoEstadoMascota" aria-live="polite">Contenta: la humedad del suelo está bien.</p>
+          </section>
+
+          <section id="panelEstado">
+            <h2>Lecturas</h2>
+            <div class="grilla-lecturas">
+              <div class="tarjeta-lectura">
+                <span class="etiqueta">Humedad de suelo</span>
+                <span class="valor" id="valorHumedadPct">—</span>
+              </div>
+              <div class="tarjeta-lectura">
+                <span class="etiqueta">Lectura cruda (ADC)</span>
+                <span class="valor" id="valorCrudo">—</span>
+              </div>
+              <div class="tarjeta-lectura" id="tarjetaTemp">
+                <span class="etiqueta">Temperatura ambiente</span>
+                <span class="valor" id="valorTemp">—</span>
+              </div>
+              <div class="tarjeta-lectura" id="tarjetaHumAmbiente">
+                <span class="etiqueta">Humedad ambiente</span>
+                <span class="valor" id="valorHumAmbiente">—</span>
+              </div>
+              <div class="tarjeta-lectura" id="tarjetaLux">
+                <span class="etiqueta">Iluminancia</span>
+                <span class="valor" id="valorLux">—</span>
+              </div>
+              <div class="tarjeta-lectura">
+                <span class="etiqueta">Nivel de agua</span>
+                <span class="valor" id="valorNivelAgua">—</span>
+              </div>
+              <div class="tarjeta-lectura">
+                <span class="etiqueta">Perfil activo</span>
+                <span class="valor" id="valorPerfilActivo">—</span>
+              </div>
+              <div class="tarjeta-lectura">
+                <span class="etiqueta">Desde el último riego</span>
+                <span class="valor" id="valorHorasRiego">—</span>
+              </div>
+            </div>
+
+            <p id="notaSinAmbiental" class="mensaje info oculto">
+              El perfil activo todavía no tiene rangos de luz ni temperatura
+              cargados (falta respaldo bibliográfico verificado): los campos
+              de temperatura, humedad ambiente e iluminancia de arriba son
+              solo informativos, el sistema no los usa para decidir nada
+              todavía.
+            </p>
+
+            <div id="bannerMotivo" class="banner-motivo oculto" role="status" aria-live="polite">
+              <div class="banner-motivo-titulo"></div>
+              <div class="banner-motivo-texto"></div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- ================= COLUMNA DERECHA: PERFILES / CALIBRACIÓN / RIEGO ================= -->
+        <div class="columna-derecha">
+
+          <section id="panelPerfiles">
+            <h2>Perfil de planta</h2>
+            <label for="selectorPerfil">Elegí un perfil de la biblioteca:</label><br>
+            <select id="selectorPerfil" style="margin-top:0.4em; width:100%;"></select>
+
+            <div id="detallePerfil"></div>
+
+            <div class="fila-conexion" style="margin-top:0.8em;">
+              <button id="botonSeleccionarPerfil" type="button">Usar este perfil</button>
+            </div>
+            <div id="mensajePerfil" class="mensaje oculto"></div>
+          </section>
+
+          <section id="panelCalibracion">
+            <h2>Calibración del sensor de humedad</h2>
+            <p>
+              Calibración de dos puntos, obligatoria antes de confiar en el
+              riego automático (ver <code>configEstaCalibrada()</code>).
+            </p>
+
+            <div class="pasos-indicador">
+              <span id="pasoInd0"></span><span id="pasoInd1"></span><span id="pasoInd2"></span>
+            </div>
+
+            <!-- Paso 0: introducción -->
+            <div class="paso-calibracion" id="pasoCal0">
+              <p>El asistente te va a pedir dos lecturas: sensor al aire (seco) y sensor sumergido en agua (saturado).</p>
+              <button id="botonIniciarCalibracion" type="button">Iniciar calibración</button>
+            </div>
+
+            <!-- Paso 1: seco -->
+            <div class="paso-calibracion oculto" id="pasoCal1">
+              <p><strong>Paso 1 de 2 — sensor al aire.</strong> Sacá el sensor de la tierra y dejalo completamente seco, al aire, sin tocar nada. Esperá a que la lectura de abajo se estabilice.</p>
+              <div class="lectura-en-vivo" id="lecturaEnVivo1">—</div>
+              <div class="fila-conexion">
+                <button id="botonConfirmarSeco" type="button">Confirmar: está seco (CAL;SECO)</button>
+              </div>
+            </div>
+
+            <!-- Paso 2: agua -->
+            <div class="paso-calibracion oculto" id="pasoCal2">
+              <p><strong>Paso 2 de 2 — sensor en agua.</strong> Sumergí la punta sensora en agua <strong>hasta la línea marcada, no más arriba</strong>: la placa electrónica no debe mojarse. Esperá a que la lectura se estabilice.</p>
+              <div class="lectura-en-vivo" id="lecturaEnVivo2">—</div>
+              <div class="fila-conexion">
+                <button id="botonConfirmarAgua" type="button">Confirmar: está en agua (CAL;AGUA)</button>
+              </div>
+            </div>
+
+            <!-- Paso 3: resultado -->
+            <div class="paso-calibracion oculto" id="pasoCal3">
+              <p id="textoResultadoCalibracion"></p>
+              <div class="fila-conexion">
+                <button id="botonRepetirCalibracion" type="button" class="secundario">Repetir calibración</button>
+              </div>
+            </div>
+
+            <div id="mensajeCalibracion" class="mensaje oculto"></div>
+
+            <div class="fila-conexion" style="margin-top:1em; border-top:1px dashed var(--borde); padding-top:0.8em;">
+              <button id="botonResetCalibracion" type="button" class="peligro">Restablecer a valores de fábrica (CAL;RESET)</button>
+            </div>
+          </section>
+
+          <section id="panelRiego">
+            <h2>Riego manual</h2>
+            <p>Dispara un riego con la dosis del perfil activo, si corresponde (misma protección antipudrición que el riego automático).</p>
+            <button id="botonRiegoManual" type="button">Regar ahora</button>
+            <div id="mensajeRiego" class="mensaje oculto"></div>
+          </section>
+
+        </div>
+      </div>
+
+      <!-- ================= REGISTRO ================= -->
+      <section id="panelRegistro">
+        <details>
+          <summary>Registro de comunicación (diagnóstico)</summary>
+          <div id="listaRegistro" aria-live="off"></div>
+          <div class="fila-conexion" style="margin-top:0.6em;">
+            <button id="botonLimpiarRegistro" type="button" class="secundario">Limpiar registro</button>
+          </div>
+        </details>
+      </section>
+
+    </div><!-- /contenidoSesion -->
+
+  </main>
+
+  <footer class="pie">
+    <p>
+      Smart Plant Bot — interfaz de configuración y monitoreo. Habla con el
+      firmware por el protocolo de texto de <code>protocolo_serial.ino</code>,
+      vía Web Serial API o el puente HTTP opcional. Sin dependencias externas.
+    </p>
+  </footer>
+
+<script>
+/* ===========================================================
+   SMART PLANT BOT — plantabot.html
+   Arquitectura en tres capas, deliberadamente separadas:
+
+     1) TRANSPORTE — habla el idioma del canal de comunicación
+        (Web Serial o el puente HTTP). Expone una interfaz común
+        de CUATRO métodos: conectar(), desconectar(),
+        enviarLinea(texto), leerLineas(callback). Cualquier objeto
+        con esos cuatro métodos sirve de transporte: por eso hay
+        dos implementaciones intercambiables más abajo.
+
+     2) PROTOCOLO — conoce la sintaxis de protocolo_serial.ino
+        (PERFIL;, ESTADO;, OK;, ERR;, AVISO;) y la traduce a
+        objetos JS. No sabe nada de DOM ni de Web Serial.
+
+     3) INTERFAZ — solo consume la capa de protocolo (objetos ya
+        parseados) y actualiza el DOM. Nunca toca el transporte
+        directamente.
+
+   =========================================================== */
+
+
+/* ===========================================================
+   CAPA 1: TRANSPORTE
+   =========================================================== */
+
+/**
+ * Transporte por Web Serial API. Cumple la interfaz común:
+ * conectar, desconectar, enviarLinea, leerLineas.
+ *
+ * Nota sobre desconexión física: en vez de agregar un quinto
+ * método a la interfaz, una desconexión inesperada del cable se
+ * informa como una línea sintética "EVENTO;DESCONECTADO" a través
+ * del mismo callback de leerLineas(). Así la interfaz sigue
+ * teniendo exactamente cuatro métodos, y la capa de protocolo
+ * puede tratar la desconexión como un evento más del canal.
+ */
+function crearTransporteWebSerial() {
+  let puerto = null;
+  let lector = null;
+  let escritor = null;
+  let callbackLinea = null;
+  let bufferEntrada = '';
+  let cerrandoManualmente = false;
+
+  function emitirEventoDesconexion() {
+    if (callbackLinea) callbackLinea('EVENTO;DESCONECTADO');
+  }
+
+  // Evento estándar del navegador: se dispara cuando el SO detecta
+  // que el dispositivo serie fue desconectado físicamente.
+  if ('serial' in navigator) {
+    navigator.serial.addEventListener('disconnect', (evento) => {
+      if (puerto && evento.target === puerto) {
+        puerto = null;
+        if (!cerrandoManualmente) emitirEventoDesconexion();
+      }
+    });
+  }
+
+  async function conectar() {
+    if (!('serial' in navigator)) {
+      throw new Error('Web Serial API no está disponible en este navegador.');
+    }
+    puerto = await navigator.serial.requestPort();
+    await puerto.open({ baudRate: 9600 });
+    cerrandoManualmente = false;
+    escritor = puerto.writable.getWriter();
+    _iniciarLecturaContinua(); // no se espera (corre en segundo plano)
+  }
+
+  async function desconectar() {
+    cerrandoManualmente = true;
+    try { if (lector) await lector.cancel(); } catch (e) { /* puede ya estar cerrado */ }
+    try { if (escritor) { await escritor.close(); } } catch (e) { /* idem */ }
+    escritor = null;
+    try { if (puerto) await puerto.close(); } catch (e) { /* idem */ }
+    puerto = null;
+  }
+
+  async function enviarLinea(texto) {
+    if (!escritor) throw new Error('El puerto serie no está conectado.');
+    const codificador = new TextEncoder();
+    await escritor.write(codificador.encode(texto + '\n'));
+  }
+
+  function leerLineas(callback) {
+    callbackLinea = callback;
+  }
+
+  async function _iniciarLecturaContinua() {
+    const decodificador = new TextDecoder();
+    lector = puerto.readable.getReader();
+    try {
+      while (true) {
+        const { value, done } = await lector.read();
+        if (done) break;
+        bufferEntrada += decodificador.decode(value, { stream: true });
+        let posicion;
+        while ((posicion = bufferEntrada.indexOf('\n')) >= 0) {
+          let linea = bufferEntrada.slice(0, posicion);
+          bufferEntrada = bufferEntrada.slice(posicion + 1);
+          linea = linea.replace(/\r$/, '');
+          if (linea.length > 0) callbackLinea && callbackLinea(linea);
+        }
+      }
+    } catch (error) {
+      if (!cerrandoManualmente) emitirEventoDesconexion();
+    } finally {
+      try { lector && lector.releaseLock(); } catch (e) { /* ignorar */ }
+    }
+  }
+
+  return { conectar, desconectar, enviarLinea, leerLineas };
+}
+
+/**
+ * Transporte alternativo: el puente HTTP de puente_serial.py.
+ * Misma interfaz de cuatro métodos. Por ser HTTP (pedido/respuesta,
+ * sin canal push), las líneas solo llegan como resultado directo de
+ * enviarLinea(): si el firmware manda un AVISO; fuera de una
+ * respuesta, este transporte no lo va a ver hasta el próximo
+ * comando. Es la limitación esperable de un puente por HTTP.
+ */
+function crearTransporteHTTP(urlBase) {
+  let conectado = false;
+  let callbackLinea = null;
+
+  async function conectar() {
+    const respuesta = await fetch(urlBase + '/puerto');
+    if (!respuesta.ok) throw new Error('El puente no respondió correctamente.');
+    conectado = true;
+  }
+
+  async function desconectar() {
+    conectado = false;
+  }
+
+  async function enviarLinea(texto) {
+    if (!conectado) throw new Error('El puente no está conectado.');
+    let respuesta;
+    try {
+      respuesta = await fetch(urlBase + '/comando', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: texto,
+      });
+    } catch (error) {
+      conectado = false;
+      if (callbackLinea) callbackLinea('EVENTO;DESCONECTADO');
+      throw error;
+    }
+    if (!respuesta.ok) {
+      conectado = false;
+      if (callbackLinea) callbackLinea('EVENTO;DESCONECTADO');
+      throw new Error('El puente respondió con un error HTTP ' + respuesta.status + '.');
+    }
+    const datos = await respuesta.json();
+    (datos.lineas || []).forEach((linea) => { if (callbackLinea) callbackLinea(linea); });
+  }
+
+  function leerLineas(callback) {
+    callbackLinea = callback;
+  }
+
+  return { conectar, desconectar, enviarLinea, leerLineas };
+}
+
+
+/* ===========================================================
+   CAPA 2: PROTOCOLO
+   Conoce la sintaxis de protocolo_serial.ino y expone métodos de
+   alto nivel (listar, seleccionar, calSeco, ...) que devuelven
+   objetos JS ya parseados, en vez de líneas de texto crudas.
+   =========================================================== */
+
+const NOMBRES_CATEGORIA = {
+  SUCULENTA: 'Suculenta',
+  MEDITERRANEA: 'Mediterránea',
+  TROPICAL: 'Tropical',
+  HORTALIZA: 'Hortaliza',
+};
+
+function parsearPerfilLinea(linea) {
+  // PERFIL;<indice>;<nombreComun>;<nombreCientifico>;<categoria>;<umbralRiego>;<estadoValidacion>;<fuenteVerificada>;<luxMin>;<luxMax>;<tempMinC>;<tempMaxC>
+  const p = linea.split(';');
+  return {
+    indice: parseInt(p[1], 10),
+    nombreComun: p[2],
+    nombreCientifico: p[3],
+    categoria: p[4],
+    umbralRiego: parseInt(p[5], 10),
+    estadoValidacion: p[6],
+    fuenteVerificada: p[7] === '1',
+    // luxMax == 0 es el centinela de "sin dato ambiental todavia"
+    // (mismo criterio que validarPerfil() en plantas_lib.ino): un
+    // perfil VALIDO_SIN_AMBIENTAL siempre trae luxMax=0 acá.
+    luxMin: parseInt(p[8], 10),
+    luxMax: parseInt(p[9], 10),
+    tempMinC: parseInt(p[10], 10),
+    tempMaxC: parseInt(p[11], 10),
+  };
+}
+
+function parsearEstadoLinea(linea) {
+  // ESTADO;<perfilActivo>;<humedadPct>;<crudo>;<tempC>;<humAmbiente>;<lux>;<nivelAgua>;<calibrada>;<horasDesdeUltimoRiego>;<motivoInhibicion>
+  const p = linea.split(';');
+  const numOrNull = (s) => (s === undefined || s === 'NAN' ? null : parseFloat(s));
+  return {
+    perfilActivo: parseInt(p[1], 10),
+    humedadPct: parseInt(p[2], 10),
+    crudo: parseInt(p[3], 10),
+    tempC: numOrNull(p[4]),
+    humAmbiente: numOrNull(p[5]),
+    lux: numOrNull(p[6]),
+    hayAgua: p[7] === '1',
+    calibrada: p[8] === '1',
+    horasDesdeUltimoRiego: parseInt(p[9], 10),
+    motivoInhibicion: p[10],
+  };
+}
+
+class Protocolo {
+  constructor(transporte) {
+    this.transporte = transporte;
+    this.comandoPendiente = null; // { lineas, resolver, rechazador }
+    this.cadena = Promise.resolve(); // serializa comandos, uno a la vez
+    this.cbAviso = null;
+    this.cbDesconexion = null;
+    this.cbRegistro = null;
+    this.transporte.leerLineas((linea) => this._alRecibirLinea(linea));
+  }
+
+  alRecibirAviso(cb) { this.cbAviso = cb; }
+  alDesconectarse(cb) { this.cbDesconexion = cb; }
+  alRegistrar(cb) { this.cbRegistro = cb; }
+
+  _log(direccion, texto) {
+    if (this.cbRegistro) this.cbRegistro(direccion, texto);
+  }
+
+  _alRecibirLinea(linea) {
+    this._log('rx', linea);
+
+    if (linea.startsWith('EVENTO;DESCONECTADO')) {
+      if (this.comandoPendiente) {
+        const cmd = this.comandoPendiente;
+        this.comandoPendiente = null;
+        cmd.rechazador(new Error('Se perdió la conexión con el equipo.'));
+      }
+      if (this.cbDesconexion) this.cbDesconexion();
+      return;
+    }
+
+    if (this.comandoPendiente) {
+      this.comandoPendiente.lineas.push(linea);
+      if (linea.startsWith('OK;') || linea.startsWith('ERR;')) {
+        const cmd = this.comandoPendiente;
+        this.comandoPendiente = null;
+        cmd.resolver(cmd.lineas);
+      }
+      return;
+    }
+
+    // Línea no solicitada (nadie está esperando respuesta ahora mismo).
+    if (linea.startsWith('AVISO;') && this.cbAviso) {
+      this.cbAviso(linea);
+    }
+  }
+
+  // Encola el comando: si hay uno en curso, este espera su turno.
+  // Así ESTADO (sondeo cada 3s) nunca se mezcla con un SELECT o un
+  // CAL disparado por el usuario al mismo tiempo.
+  enviarComando(texto) {
+    const tarea = () => this._enviarComandoInterno(texto);
+    const resultado = this.cadena.then(tarea, tarea);
+    // Si el comando falla, igual liberamos la cadena para el que sigue.
+    this.cadena = resultado.then(() => {}, () => {});
+    return resultado;
+  }
+
+  _enviarComandoInterno(texto) {
+    return new Promise((resolver, rechazador) => {
+      let terminado = false;
+
+      const finalizarOk = (lineas) => {
+        if (terminado) return;
+        terminado = true;
+        clearTimeout(temporizador);
+        resolver(lineas);
+      };
+      const finalizarError = (err) => {
+        if (terminado) return;
+        terminado = true;
+        clearTimeout(temporizador);
+        rechazador(err);
+      };
+
+      this.comandoPendiente = { lineas: [], resolver: finalizarOk, rechazador: finalizarError };
+      this._log('tx', texto);
+
+      const temporizador = setTimeout(() => {
+        if (this.comandoPendiente && this.comandoPendiente.resolver === finalizarOk) {
+          this.comandoPendiente = null;
+        }
+        finalizarError(new Error('El equipo no respondió a tiempo.'));
+      }, 4000);
+
+      this.transporte.enviarLinea(texto).catch((err) => {
+        this.comandoPendiente = null;
+        finalizarError(err);
+      });
+    });
+  }
+
+  async listar() {
+    const lineas = await this.enviarComando('LISTAR');
+    return lineas.filter((l) => l.startsWith('PERFIL;')).map(parsearPerfilLinea);
+  }
+
+  async seleccionar(indice) {
+    const lineas = await this.enviarComando('SELECT;' + indice);
+    const ultima = lineas[lineas.length - 1] || '';
+    if (ultima.startsWith('OK;SELECT;')) return { ok: true, indice };
+    return { ok: false, lineaCruda: ultima };
+  }
+
+  async calSeco() {
+    const lineas = await this.enviarComando('CAL;SECO');
+    const ultima = lineas[lineas.length - 1] || '';
+    const p = ultima.split(';');
+    if (p[0] === 'OK') return { ok: true, valor: parseInt(p[3], 10) };
+    return { ok: false, lineaCruda: ultima };
+  }
+
+  async calAgua() {
+    const lineas = await this.enviarComando('CAL;AGUA');
+    const ultima = lineas[lineas.length - 1] || '';
+    const p = ultima.split(';');
+    if (p[0] === 'OK') return { ok: true, valor: parseInt(p[3], 10) };
+    return { ok: false, lineaCruda: ultima };
+  }
+
+  async calReset() {
+    const lineas = await this.enviarComando('CAL;RESET');
+    const ultima = lineas[lineas.length - 1] || '';
+    const p = ultima.split(';');
+    if (p[0] === 'OK') {
+      return { ok: true, valorSeco: parseInt(p[3], 10), valorSaturado: parseInt(p[4], 10) };
+    }
+    return { ok: false, lineaCruda: ultima };
+  }
+
+  async estado() {
+    const lineas = await this.enviarComando('ESTADO');
+    const lineaEstado = lineas.find((l) => l.startsWith('ESTADO;'));
+    if (!lineaEstado) throw new Error('Respuesta de ESTADO inesperada.');
+    return parsearEstadoLinea(lineaEstado);
+  }
+
+  async riegoManual() {
+    const lineas = await this.enviarComando('RIEGO;MANUAL');
+    const ultima = lineas[lineas.length - 1] || '';
+    const p = ultima.split(';');
+    if (p[0] === 'OK') return { ok: true, dosisMs: parseInt(p[3], 10) };
+    return { ok: false, codigo: p[1], valor: p.length > 2 ? p[2] : null };
+  }
+}
+
+
+/* ===========================================================
+   CAPA 3: INTERFAZ
+   Solo usa objetos de la capa de protocolo. No conoce Web Serial
+   ni el puente HTTP.
+   =========================================================== */
+
+const MENSAJES_MOTIVO = {
+  SIN_CALIBRAR: 'El sensor de humedad todavía no fue calibrado. El riego automático está desactivado hasta calibrar (ver el asistente de calibración).',
+  SIN_AGUA: 'El depósito de agua está vacío o el sensor de nivel no detecta agua suficiente. Rellená el depósito antes de regar: encender la bomba en seco puede dañarla.',
+  ESPERA_ACTIVA: 'Ya se regó hace poco. El sistema exige un tiempo mínimo entre riegos (antipudrición) antes de volver a regar, aunque el suelo esté seco.',
+  SUELO_HUMEDO: 'El suelo todavía tiene humedad suficiente según el umbral del perfil activo: no hace falta regar en este momento.',
+};
+const TITULOS_MOTIVO = {
+  SIN_CALIBRAR: 'Sensor sin calibrar',
+  SIN_AGUA: 'Sin agua en el depósito',
+  ESPERA_ACTIVA: 'Esperando por protección antipudrición',
+  SUELO_HUMEDO: 'Suelo todavía húmedo',
+};
+const MENSAJES_AVISO = {
+  EEPROM_VIRGEN: 'La EEPROM estaba vacía o sin una configuración válida guardada. Se cargaron valores de fábrica: conviene calibrar y elegir el perfil activo.',
+  SIN_CALIBRAR: 'El sensor de humedad todavía no está calibrado (mismo aviso que se repite en el panel de estado).',
+};
+const DESCRIPCION_MASCOTA = {
+  feliz: 'Contenta: la humedad del suelo está bien.',
+  sedienta: 'Con sed: la humedad está por debajo del umbral del perfil.',
+  dormida: 'Durmiendo: poca luz ambiente.',
+  alerta: '¡Necesita atención! Revisá calibración o nivel de agua.',
+  regada: '¡La acaban de regar!',
+};
+
+// Estado global de la interfaz (solo en memoria — sin localStorage
+// ni sessionStorage, por restricción del enunciado).
+const estadoApp = {
+  transporte: null,
+  protocolo: null,
+  conectado: false,
+  perfiles: [],
+  perfilesPorIndice: new Map(),
+  ultimoEstado: null,
+  riegoRecienteHasta: 0,
+  temporizadorPoll: null,
+  temporizadorRegada: null,
+  pasoCalibracion: 0,
+  calSecoValor: null,
+  calAguaValor: null,
+  sondeoEnCurso: false,
+};
+
+let refs = {}; // referencias a elementos del DOM, cargadas en DOMContentLoaded
+
+function esperar(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+// ----------------------- utilitarios de UI -----------------------
+
+function mostrarMensaje(elemento, texto, tipo) {
+  elemento.textContent = texto;
+  elemento.className = 'mensaje ' + tipo;
+  elemento.classList.remove('oculto');
+}
+function ocultarMensaje(elemento) {
+  elemento.classList.add('oculto');
+}
+
+function actualizarIndicadorConexion(estado, texto) {
+  refs.indicadorConexion.dataset.estado = estado;
+  refs.textoIndicadorConexion.textContent = texto;
+}
+
+function mostrarContenidoSesion(mostrar) {
+  refs.contenidoSesion.classList.toggle('oculto', !mostrar);
+  refs.botonConectar.classList.toggle('oculto', mostrar);
+  refs.botonDesconectar.classList.toggle('oculto', !mostrar);
+}
+
+// ----------------------- registro (log) -----------------------
+
+function agregarAlRegistro(direccion, texto) {
+  const hora = new Date().toLocaleTimeString('es-AR', { hour12: false });
+  const linea = document.createElement('div');
+  linea.className = 'linea-registro linea-' + direccion;
+  linea.textContent = '[' + hora + '] ' + (direccion === 'tx' ? '→ ' : '← ') + texto;
+  refs.listaRegistro.appendChild(linea);
+  refs.listaRegistro.scrollTop = refs.listaRegistro.scrollHeight;
+  // Recorte defensivo para que una sesión larga no crezca sin límite.
+  while (refs.listaRegistro.children.length > 500) {
+    refs.listaRegistro.removeChild(refs.listaRegistro.firstChild);
+  }
+}
+
+// ----------------------- mascota -----------------------
+
+function calcularEstadoMascota(estado, perfilInfo, riegoReciente) {
+  if (riegoReciente) return 'regada';
+  if (estado.motivoInhibicion === 'SIN_CALIBRAR' || estado.motivoInhibicion === 'SIN_AGUA') return 'alerta';
+
+  const sedienta = perfilInfo ? estado.humedadPct < perfilInfo.umbralRiego : false;
+  if (sedienta) return 'sedienta';
+
+  // luxMax > 0 es el mismo centinela de "hay dato ambiental cargado"
+  // que usa el firmware: un perfil VALIDO_SIN_AMBIENTAL siempre trae
+  // luxMax=0, así que nunca entra acá. Solo si hay dato real se
+  // compara la lectura contra el luxMin propio de ESE perfil, no
+  // contra un umbral genérico.
+  const tieneAmbiental = !!(perfilInfo && perfilInfo.luxMax > 0);
+  const oscuro = tieneAmbiental && estado.lux !== null && estado.lux < perfilInfo.luxMin;
+  if (oscuro) return 'dormida';
+
+  return 'feliz';
+}
+
+function aplicarEstadoMascota(estado) {
+  const riegoReciente = estadoApp.riegoRecienteHasta > Date.now();
+  const perfilInfo = estadoApp.perfilesPorIndice.get(estado.perfilActivo) || null;
+  const nombreEstado = calcularEstadoMascota(estado, perfilInfo, riegoReciente);
+  refs.mascotaContenedor.dataset.estado = nombreEstado;
+  refs.textoEstadoMascota.textContent = DESCRIPCION_MASCOTA[nombreEstado];
+}
+
+function marcarRiegoReciente() {
+  estadoApp.riegoRecienteHasta = Date.now() + 8000;
+  if (estadoApp.temporizadorRegada) clearTimeout(estadoApp.temporizadorRegada);
+  estadoApp.temporizadorRegada = setTimeout(() => {
+    if (estadoApp.ultimoEstado) aplicarEstadoMascota(estadoApp.ultimoEstado);
+  }, 8000);
+  if (estadoApp.ultimoEstado) aplicarEstadoMascota(estadoApp.ultimoEstado);
+}
+
+function detectarRiegoReciente(estadoNuevo) {
+  if (!estadoApp.ultimoEstado) return false;
+  const antes = estadoApp.ultimoEstado.horasDesdeUltimoRiego;
+  const ahora = estadoNuevo.horasDesdeUltimoRiego;
+  return antes > 0 && ahora === 0;
+}
+
+// ----------------------- panel de estado -----------------------
+
+function formatearNumero(valor, decimales, sufijo) {
+  if (valor === null || valor === undefined || Number.isNaN(valor)) return 'sin datos';
+  return valor.toFixed(decimales) + sufijo;
+}
+
+function renderizarEstado(estado) {
+  refs.valorHumedadPct.textContent = estado.humedadPct + ' %';
+  refs.valorCrudo.textContent = String(estado.crudo);
+  refs.valorTemp.textContent = formatearNumero(estado.tempC, 1, ' °C');
+  refs.valorHumAmbiente.textContent = formatearNumero(estado.humAmbiente, 1, ' %');
+  refs.valorLux.textContent = formatearNumero(estado.lux, 0, ' lux');
+  refs.valorNivelAgua.textContent = estado.hayAgua ? 'Suficiente' : 'Vacío / insuficiente';
+  refs.valorHorasRiego.textContent = estado.horasDesdeUltimoRiego + ' h';
+
+  const perfilInfo = estadoApp.perfilesPorIndice.get(estado.perfilActivo);
+  refs.valorPerfilActivo.textContent = perfilInfo
+    ? perfilInfo.nombreComun + ' (#' + estado.perfilActivo + ')'
+    : '#' + estado.perfilActivo;
+
+  // luxMax > 0: mismo centinela que usa calcularEstadoMascota() y el
+  // propio firmware (validarPerfil()) para "hay dato ambiental".
+  const tieneAmbiental = !!(perfilInfo && perfilInfo.luxMax > 0);
+  [refs.tarjetaTemp, refs.tarjetaHumAmbiente, refs.tarjetaLux].forEach((el) => {
+    el.classList.toggle('atenuado', !tieneAmbiental);
+  });
+  refs.notaSinAmbiental.classList.toggle('oculto', tieneAmbiental);
+
+  renderizarBannerMotivo(estado);
+  aplicarEstadoMascota(estado);
+}
+
+function claseSegunMotivo(motivo) {
+  return (motivo === 'SIN_CALIBRAR' || motivo === 'SIN_AGUA') ? 'banner-alerta' : 'banner-info';
+}
+
+function renderizarBannerMotivo(estado) {
+  if (estado.motivoInhibicion === 'NINGUNO') {
+    refs.bannerMotivo.classList.add('oculto');
+    return;
+  }
+  refs.bannerMotivo.classList.remove('oculto');
+  refs.bannerMotivo.className = 'banner-motivo ' + claseSegunMotivo(estado.motivoInhibicion);
+  refs.bannerMotivo.querySelector('.banner-motivo-titulo').textContent =
+    TITULOS_MOTIVO[estado.motivoInhibicion] || estado.motivoInhibicion;
+  refs.bannerMotivo.querySelector('.banner-motivo-texto').textContent =
+    MENSAJES_MOTIVO[estado.motivoInhibicion] || '';
+}
+
+async function refrescarEstado() {
+  const estado = await estadoApp.protocolo.estado();
+  if (detectarRiegoReciente(estado)) marcarRiegoReciente();
+  estadoApp.ultimoEstado = estado;
+  renderizarEstado(estado);
+  actualizarLecturaEnVivoCalibracion(estado.crudo);
+}
+
+function iniciarPolling() {
+  detenerPolling();
+  estadoApp.temporizadorPoll = setInterval(async () => {
+    if (estadoApp.sondeoEnCurso) return;
+    estadoApp.sondeoEnCurso = true;
+    try {
+      await refrescarEstado();
+    } catch (err) {
+      // El error ya queda en el registro (vía Protocolo); no se
+      // interrumpe el sondeo por una falla puntual.
+    } finally {
+      estadoApp.sondeoEnCurso = false;
+    }
+  }, 3000);
+}
+function detenerPolling() {
+  if (estadoApp.temporizadorPoll) {
+    clearInterval(estadoApp.temporizadorPoll);
+    estadoApp.temporizadorPoll = null;
+  }
+}
+
+// ----------------------- perfiles -----------------------
+
+function renderizarPerfiles(perfiles) {
+  refs.selectorPerfil.innerHTML = '';
+  perfiles.forEach((p) => {
+    const opcion = document.createElement('option');
+    opcion.value = String(p.indice);
+    let etiqueta = p.nombreComun + ' (' + p.nombreCientifico + ') — ' +
+      (NOMBRES_CATEGORIA[p.categoria] || p.categoria);
+    if (!p.fuenteVerificada) etiqueta += ' [sin verificar]';
+    opcion.textContent = etiqueta;
+    refs.selectorPerfil.appendChild(opcion);
+  });
+  renderizarDetallePerfil();
+}
+
+function renderizarDetallePerfil() {
+  const indice = parseInt(refs.selectorPerfil.value, 10);
+  const p = estadoApp.perfilesPorIndice.get(indice);
+  if (!p) { refs.detallePerfil.innerHTML = ''; return; }
+
+  let html = '<strong>' + p.nombreComun + '</strong> <em>(' + p.nombreCientifico + ')</em>' +
+    '<span class="categoria-pill">' + (NOMBRES_CATEGORIA[p.categoria] || p.categoria) + '</span>' +
+    '<br>Umbral de riego: ' + p.umbralRiego + ' % — Validación: ' + p.estadoValidacion;
+
+  if (!p.fuenteVerificada) {
+    html += '<div class="mensaje alerta" style="margin-top:0.6em;">' +
+      'Este perfil usa valores de configuración inicial sin respaldo ' +
+      'bibliográfico verificado todavía.</div>';
+  }
+  refs.detallePerfil.innerHTML = html;
+}
+
+async function manejarSeleccionarPerfil() {
+  const indice = parseInt(refs.selectorPerfil.value, 10);
+  if (Number.isNaN(indice)) return;
+  refs.botonSeleccionarPerfil.disabled = true;
+  try {
+    const resultado = await estadoApp.protocolo.seleccionar(indice);
+    if (resultado.ok) {
+      mostrarMensaje(refs.mensajePerfil, 'Perfil activo actualizado correctamente.', 'ok');
+      await refrescarEstado();
+    } else {
+      mostrarMensaje(refs.mensajePerfil, 'El equipo rechazó el índice: ' + resultado.lineaCruda, 'alerta');
+    }
+  } catch (err) {
+    mostrarMensaje(refs.mensajePerfil, 'No se pudo seleccionar el perfil: ' + err.message, 'alerta');
+  } finally {
+    refs.botonSeleccionarPerfil.disabled = false;
+  }
+}
+
+// ----------------------- calibración -----------------------
+
+function actualizarLecturaEnVivoCalibracion(crudo) {
+  if (estadoApp.pasoCalibracion === 1) refs.lecturaEnVivo1.textContent = String(crudo);
+  if (estadoApp.pasoCalibracion === 2) refs.lecturaEnVivo2.textContent = String(crudo);
+}
+
+function renderizarPasoCalibracion() {
+  [refs.pasoCal0, refs.pasoCal1, refs.pasoCal2, refs.pasoCal3].forEach((el, i) => {
+    el.classList.toggle('oculto', i !== estadoApp.pasoCalibracion);
+  });
+  [refs.pasoInd0, refs.pasoInd1, refs.pasoInd2].forEach((el, i) => {
+    el.classList.toggle('activo', i <= (estadoApp.pasoCalibracion === 3 ? 2 : estadoApp.pasoCalibracion - 1));
+  });
+}
+
+function irAPasoCalibracion(paso) {
+  estadoApp.pasoCalibracion = paso;
+  renderizarPasoCalibracion();
+}
+
+async function manejarIniciarCalibracion() {
+  ocultarMensaje(refs.mensajeCalibracion);
+  irAPasoCalibracion(1);
+}
+
+async function manejarConfirmarSeco() {
+  refs.botonConfirmarSeco.disabled = true;
+  try {
+    const resultado = await estadoApp.protocolo.calSeco();
+    if (resultado.ok) {
+      estadoApp.calSecoValor = resultado.valor;
+      irAPasoCalibracion(2);
+    } else {
+      mostrarMensaje(refs.mensajeCalibracion, 'El equipo no confirmó la calibración: ' + resultado.lineaCruda, 'alerta');
+    }
+  } catch (err) {
+    mostrarMensaje(refs.mensajeCalibracion, 'Error al calibrar: ' + err.message, 'alerta');
+  } finally {
+    refs.botonConfirmarSeco.disabled = false;
+  }
+}
+
+async function manejarConfirmarAgua() {
+  refs.botonConfirmarAgua.disabled = true;
+  try {
+    const resultado = await estadoApp.protocolo.calAgua();
+    if (resultado.ok) {
+      estadoApp.calAguaValor = resultado.valor;
+      mostrarResultadoCalibracion(estadoApp.calSecoValor, estadoApp.calAguaValor);
+      irAPasoCalibracion(3);
+    } else {
+      mostrarMensaje(refs.mensajeCalibracion, 'El equipo no confirmó la calibración: ' + resultado.lineaCruda, 'alerta');
+    }
+  } catch (err) {
+    mostrarMensaje(refs.mensajeCalibracion, 'Error al calibrar: ' + err.message, 'alerta');
+  } finally {
+    refs.botonConfirmarAgua.disabled = false;
+  }
+}
+
+function mostrarResultadoCalibracion(valorSeco, valorSaturado) {
+  const rango = valorSeco - valorSaturado;
+  let texto = 'Calibración completa. Seco: ' + valorSeco + ' — Saturado: ' + valorSaturado +
+    ' — Rango: ' + rango + ' unidades de ADC.';
+  if (rango < 100) {
+    texto += ' ATENCIÓN: el rango es menor a 100 unidades, lo que indica una ' +
+      'calibración defectuosa (sensor, cableado o procedimiento). Se recomienda repetirla.';
+  } else {
+    texto += ' Rango saludable: el riego automático ya puede confiar en esta calibración.';
+  }
+  refs.textoResultadoCalibracion.textContent = texto;
+}
+
+async function manejarResetCalibracion() {
+  const boton = refs.botonResetCalibracion;
+  if (boton.dataset.confirmando !== '1') {
+    boton.dataset.confirmando = '1';
+    const textoOriginal = boton.textContent;
+    boton.textContent = '¿Seguro? Tocá de nuevo para confirmar';
+    setTimeout(() => {
+      if (boton.dataset.confirmando === '1') {
+        boton.dataset.confirmando = '0';
+        boton.textContent = textoOriginal;
+      }
+    }, 4000);
+    return;
+  }
+  boton.dataset.confirmando = '0';
+  boton.textContent = 'Restablecer a valores de fábrica (CAL;RESET)';
+  boton.disabled = true;
+  try {
+    const resultado = await estadoApp.protocolo.calReset();
+    if (resultado.ok) {
+      mostrarMensaje(refs.mensajeCalibracion,
+        'Se restablecieron los valores de fábrica (seco=' + resultado.valorSeco +
+        ', saturado=' + resultado.valorSaturado + '). Hace falta volver a calibrar.', 'info');
+      irAPasoCalibracion(0);
+      await refrescarEstado();
+    } else {
+      mostrarMensaje(refs.mensajeCalibracion, 'No se pudo restablecer: ' + resultado.lineaCruda, 'alerta');
+    }
+  } catch (err) {
+    mostrarMensaje(refs.mensajeCalibracion, 'Error al restablecer: ' + err.message, 'alerta');
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+// ----------------------- riego manual -----------------------
+
+function traducirErrorRiego(resultado) {
+  switch (resultado.codigo) {
+    case 'ESPERA_ACTIVA':
+      return 'Todavía no corresponde regar: falta(n) aproximadamente ' + resultado.valor +
+        ' hora(s). ' + MENSAJES_MOTIVO.ESPERA_ACTIVA;
+    case 'SUELO_HUMEDO':
+      return 'El suelo todavía está húmedo (' + resultado.valor + ' % según el sensor calibrado): ' +
+        'no hace falta regar. ' + MENSAJES_MOTIVO.SUELO_HUMEDO;
+    case 'SIN_AGUA':
+      return 'El depósito está vacío: hay que rellenarlo antes de poder regar. ' + MENSAJES_MOTIVO.SIN_AGUA;
+    case 'SIN_CALIBRAR':
+      return 'El sensor todavía no está calibrado. ' + MENSAJES_MOTIVO.SIN_CALIBRAR;
+    case 'RIEGO_EN_CURSO':
+      return 'Ya hay un ciclo de riego en curso; esperá a que termine antes de pedir otro.';
+    case 'PERFIL_INVALIDO':
+      return 'El perfil activo guardado no es válido. Elegí un perfil de la lista antes de regar.';
+    default:
+      return 'El equipo respondió con un error no reconocido: ' + (resultado.codigo || '(vacío)') + '.';
+  }
+}
+
+async function manejarRiegoManual() {
+  refs.botonRiegoManual.disabled = true;
+  try {
+    const resultado = await estadoApp.protocolo.riegoManual();
+    if (resultado.ok) {
+      mostrarMensaje(refs.mensajeRiego, 'Riego iniciado: bomba encendida por ' + resultado.dosisMs + ' ms.', 'ok');
+      marcarRiegoReciente();
+      await refrescarEstado();
+    } else {
+      mostrarMensaje(refs.mensajeRiego, traducirErrorRiego(resultado), 'alerta');
+    }
+  } catch (err) {
+    mostrarMensaje(refs.mensajeRiego, 'No se pudo enviar el comando: ' + err.message, 'alerta');
+  } finally {
+    refs.botonRiegoManual.disabled = false;
+  }
+}
+
+// ----------------------- avisos no solicitados -----------------------
+
+function manejarAviso(lineaAviso) {
+  // AVISO;<codigo>
+  const codigo = lineaAviso.split(';')[1] || lineaAviso;
+  const texto = MENSAJES_AVISO[codigo] || ('El equipo envió un aviso: ' + lineaAviso);
+  mostrarMensaje(refs.mensajeConexion, 'Aviso del equipo — ' + texto, 'info');
+}
+
+// ----------------------- conexión / desconexión -----------------------
+
+async function iniciarSesion(transporte, nombreTransporte) {
+  estadoApp.transporte = transporte;
+  estadoApp.protocolo = new Protocolo(transporte);
+  estadoApp.protocolo.alRecibirAviso(manejarAviso);
+  estadoApp.protocolo.alDesconectarse(manejarDesconexionInesperada);
+  estadoApp.protocolo.alRegistrar(agregarAlRegistro);
+
+  // Al abrir el puerto el Uno se resetea (DTR) y tarda un momento en
+  // terminar setup(): esperamos antes del primer comando para no
+  // perdernos los AVISO; de arranque ni pisarle la inicialización.
+  actualizarIndicadorConexion('conectando', 'Esperando arranque del equipo…');
+  await esperar(2000); // mismo margen que usa puente_serial.py
+
+  estadoApp.conectado = true;
+  actualizarIndicadorConexion('conectado', 'Conectado (' + nombreTransporte + ')');
+  mostrarContenidoSesion(true);
+
+  const perfiles = await estadoApp.protocolo.listar();
+  estadoApp.perfiles = perfiles;
+  estadoApp.perfilesPorIndice = new Map(perfiles.map((p) => [p.indice, p]));
+  renderizarPerfiles(perfiles);
+
+  await refrescarEstado();
+  iniciarPolling();
+}
+
+function manejarDesconexionInesperada() {
+  detenerPolling();
+  estadoApp.conectado = false;
+  actualizarIndicadorConexion('desconectado', 'Desconectado (se perdió la conexión)');
+  mostrarContenidoSesion(false);
+  mostrarMensaje(refs.mensajeConexion,
+    'Se perdió la conexión con el equipo (¿se desconectó el cable?). Reconectá cuando esté listo.', 'alerta');
+}
+
+async function manejarConectar() {
+  ocultarMensaje(refs.mensajeConexion);
+  refs.botonConectar.disabled = true;
+  actualizarIndicadorConexion('conectando', 'Conectando…');
+  try {
+    const transporte = crearTransporteWebSerial();
+    await transporte.conectar();
+    await iniciarSesion(transporte, 'USB / Web Serial');
+  } catch (err) {
+    actualizarIndicadorConexion('desconectado', 'Desconectado');
+    const mensaje = (err && err.name === 'NotFoundError')
+      ? 'No se seleccionó ningún puerto.'
+      : 'No se pudo conectar: ' + err.message;
+    mostrarMensaje(refs.mensajeConexion, mensaje, 'alerta');
+  } finally {
+    refs.botonConectar.disabled = false;
+  }
+}
+
+async function manejarConectarPuente() {
+  const url = refs.inputUrlPuente.value.trim().replace(/\/+$/, '');
+  if (!url) {
+    mostrarMensaje(refs.mensajeConexion, 'Ingresá la URL del puente.', 'alerta');
+    return;
+  }
+  ocultarMensaje(refs.mensajeConexion);
+  refs.botonConectarPuente.disabled = true;
+  actualizarIndicadorConexion('conectando', 'Conectando al puente…');
+  try {
+    const transporte = crearTransporteHTTP(url);
+    await transporte.conectar();
+    await iniciarSesion(transporte, 'puente HTTP');
+  } catch (err) {
+    actualizarIndicadorConexion('desconectado', 'Desconectado');
+    mostrarMensaje(refs.mensajeConexion, 'No se pudo conectar al puente: ' + err.message, 'alerta');
+  } finally {
+    refs.botonConectarPuente.disabled = false;
+  }
+}
+
+async function manejarDesconectar() {
+  detenerPolling();
+  try { if (estadoApp.transporte) await estadoApp.transporte.desconectar(); } catch (e) { /* ignorar */ }
+  estadoApp.conectado = false;
+  actualizarIndicadorConexion('desconectado', 'Desconectado');
+  mostrarContenidoSesion(false);
+}
+
+// ----------------------- arranque -----------------------
+
+function cargarReferenciasDom() {
+  const porId = (id) => document.getElementById(id);
+  refs = {
+    indicadorConexion: porId('indicadorConexion'),
+    textoIndicadorConexion: porId('textoIndicadorConexion'),
+    panelSinWebSerial: porId('panelSinWebSerial'),
+    detallesPuente: porId('detallesPuente'),
+    botonConectar: porId('botonConectar'),
+    botonDesconectar: porId('botonDesconectar'),
+    mensajeConexion: porId('mensajeConexion'),
+    inputUrlPuente: porId('inputUrlPuente'),
+    botonConectarPuente: porId('botonConectarPuente'),
+    contenidoSesion: porId('contenidoSesion'),
+
+    mascotaContenedor: porId('mascotaContenedor'),
+    textoEstadoMascota: porId('textoEstadoMascota'),
+
+    valorHumedadPct: porId('valorHumedadPct'),
+    valorCrudo: porId('valorCrudo'),
+    valorTemp: porId('valorTemp'),
+    valorHumAmbiente: porId('valorHumAmbiente'),
+    valorLux: porId('valorLux'),
+    valorNivelAgua: porId('valorNivelAgua'),
+    valorPerfilActivo: porId('valorPerfilActivo'),
+    valorHorasRiego: porId('valorHorasRiego'),
+    tarjetaTemp: porId('tarjetaTemp'),
+    tarjetaHumAmbiente: porId('tarjetaHumAmbiente'),
+    tarjetaLux: porId('tarjetaLux'),
+    notaSinAmbiental: porId('notaSinAmbiental'),
+    bannerMotivo: porId('bannerMotivo'),
+
+    selectorPerfil: porId('selectorPerfil'),
+    detallePerfil: porId('detallePerfil'),
+    botonSeleccionarPerfil: porId('botonSeleccionarPerfil'),
+    mensajePerfil: porId('mensajePerfil'),
+
+    pasoInd0: porId('pasoInd0'),
+    pasoInd1: porId('pasoInd1'),
+    pasoInd2: porId('pasoInd2'),
+    pasoCal0: porId('pasoCal0'),
+    pasoCal1: porId('pasoCal1'),
+    pasoCal2: porId('pasoCal2'),
+    pasoCal3: porId('pasoCal3'),
+    lecturaEnVivo1: porId('lecturaEnVivo1'),
+    lecturaEnVivo2: porId('lecturaEnVivo2'),
+    textoResultadoCalibracion: porId('textoResultadoCalibracion'),
+    botonIniciarCalibracion: porId('botonIniciarCalibracion'),
+    botonConfirmarSeco: porId('botonConfirmarSeco'),
+    botonConfirmarAgua: porId('botonConfirmarAgua'),
+    botonRepetirCalibracion: porId('botonRepetirCalibracion'),
+    botonResetCalibracion: porId('botonResetCalibracion'),
+    mensajeCalibracion: porId('mensajeCalibracion'),
+
+    botonRiegoManual: porId('botonRiegoManual'),
+    mensajeRiego: porId('mensajeRiego'),
+
+    listaRegistro: porId('listaRegistro'),
+    botonLimpiarRegistro: porId('botonLimpiarRegistro'),
+  };
+}
+
+function configurarListeners() {
+  refs.botonConectar.addEventListener('click', manejarConectar);
+  refs.botonDesconectar.addEventListener('click', manejarDesconectar);
+  refs.botonConectarPuente.addEventListener('click', manejarConectarPuente);
+
+  refs.selectorPerfil.addEventListener('change', renderizarDetallePerfil);
+  refs.botonSeleccionarPerfil.addEventListener('click', manejarSeleccionarPerfil);
+
+  refs.botonIniciarCalibracion.addEventListener('click', manejarIniciarCalibracion);
+  refs.botonConfirmarSeco.addEventListener('click', manejarConfirmarSeco);
+  refs.botonConfirmarAgua.addEventListener('click', manejarConfirmarAgua);
+  refs.botonRepetirCalibracion.addEventListener('click', () => irAPasoCalibracion(0));
+  refs.botonResetCalibracion.addEventListener('click', manejarResetCalibracion);
+
+  refs.botonRiegoManual.addEventListener('click', manejarRiegoManual);
+
+  refs.botonLimpiarRegistro.addEventListener('click', () => {
+    refs.listaRegistro.innerHTML = '';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  cargarReferenciasDom();
+
+  const soportaWebSerial = 'serial' in navigator;
+  refs.panelSinWebSerial.classList.toggle('oculto', soportaWebSerial);
+  refs.botonConectar.classList.toggle('oculto', !soportaWebSerial);
+  if (!soportaWebSerial) {
+    refs.detallesPuente.open = true;
+  }
+
+  renderizarPasoCalibracion();
+  configurarListeners();
+});
+</script>
+</body>
+</html>

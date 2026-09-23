@@ -1,0 +1,6 @@
+*.o
+*.elf
+*.hex
+build/
+__pycache__/
+.vscode/
