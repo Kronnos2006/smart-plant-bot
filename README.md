@@ -44,6 +44,21 @@ del `.ino` no coinciden: tienen que ser iguales (por eso existe
 —con guion bajo, el IDE no acepta guiones medios— y renombrar
 `biblotecas.ino` a `smart_plant_bot.ino`.
 
+**0.2b — Verificar el cableado contra los pines del firmware.** Los
+`#define` al inicio de `protocolo_serial.ino` tienen que coincidir con
+el armado real:
+
+| Señal | Pin | Nota |
+|---|---|---|
+| Sensor de humedad AD69070 | `A0` | salida analógica |
+| Flotador AD12343 | `3` | `INPUT_PULLUP`: en reposo HIGH, el flotador lo lleva a LOW |
+| DHT22 | `2` | pin de datos |
+| Gate del MOSFET (bomba) | `7` | con resistencia en serie |
+| BH1750 | `A4` / `A5` | I2C: SDA y SCL, fijos en el Uno |
+
+Si el flotador queda invertido (marca "sin agua" con el depósito
+lleno), cambiar `NIVEL_AGUA_OK` de `HIGH` a `LOW` en vez de recablear.
+
 **0.3 — Elegir placa y puerto.** **Herramientas → Placa → Arduino AVR
 Boards → Arduino Uno**, y **Herramientas → Puerto**, el COM que
 aparezca al conectar la placa (en Windows suele ser `COM3` o más
@@ -109,6 +124,17 @@ CAL;AGUA      <- con la punta sumergida en agua, sin mojar la placa
 Cada uno responde `OK;CAL;SECO;<valor>` / `OK;CAL;AGUA;<valor>` y
 guarda en EEPROM. `CAL;RESET` vuelve a fábrica si hay que empezar de
 nuevo. Detalle completo en "Calibración de dos puntos" más abajo.
+
+**No confundir estos dos puntos con los umbrales de tierra seca y
+tierra húmeda.** `CAL;SECO` va con el sensor **al aire**, no clavado en
+tierra seca, y `CAL;AGUA` con la punta **sumergida en agua**, no en
+tierra mojada. Son los dos extremos absolutos de la escala, y por eso
+quedan mucho más separados que las lecturas que da el sensor dentro de
+una maceta. El firmware exige que la diferencia entre ambos sea de al
+menos **100 cuentas de ADC**; si es menor, `configEstaCalibrada()`
+devuelve `false` y el riego automático nunca actúa. Si la calibración
+se hace con el sensor dentro de la tierra en los dos pasos, el rango
+sale demasiado angosto y el sistema queda inhibido sin razón aparente.
 
 ### 3. Elegir la planta
 

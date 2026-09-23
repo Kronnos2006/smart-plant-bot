@@ -30,17 +30,19 @@
 #include "config_persistente.h"
 
 // ---------------------------------------------------------------
-// Asignacion de pines (protoboard/borneras, sin soldadura). Son
-// placeholders razonables: ajustar segun el cableado real del equipo.
+// Asignacion de pines. Corresponden al cableado real del equipo,
+// verificado con el sketch de prueba en protoboard.
 // ---------------------------------------------------------------
 #define PIN_HUMEDAD_SUELO A0  // AD69070, salida analogica
-#define PIN_BOMBA 5           // gate del MOSFET FQP30N06 (con resistencia serie)
-#define PIN_NIVEL_AGUA 6      // flotador AD12343, salida digital
-#define PIN_DHT22 7           // pin de datos del DHT22
+#define PIN_BOMBA 7           // gate del MOSFET FQP30N06 (con resistencia serie)
+#define PIN_NIVEL_AGUA 3      // flotador AD12343, salida digital
+#define PIN_DHT22 2           // pin de datos del DHT22
 
-// Nivel logico que indica "hay agua suficiente" en el flotador
-// AD12343. Depende de como este cableado (normalmente abierto vs
-// normalmente cerrado): si en tu armado da al reves, cambiar a LOW.
+// El flotador se lee con la resistencia de pull-up interna del
+// ATmega328P (ver pinMode en setup): en reposo el pin queda en HIGH y
+// el flotador lo lleva a LOW al cerrar contra GND. Con ese cableado
+// HIGH significa "hay agua suficiente". Si en un armado distinto da al
+// reves, cambiar esta constante a LOW.
 #define NIVEL_AGUA_OK HIGH
 
 DHT dht(PIN_DHT22, DHT22);
@@ -440,7 +442,7 @@ void setup() {
 
   pinMode(PIN_BOMBA, OUTPUT);
   digitalWrite(PIN_BOMBA, LOW);
-  pinMode(PIN_NIVEL_AGUA, INPUT);
+  pinMode(PIN_NIVEL_AGUA, INPUT_PULLUP);
 
   dht.begin();
   Wire.begin();
