@@ -207,6 +207,8 @@ la espera mínima del perfil.
 | `protocolo_serial.ino` | **Firmware principal**: único `setup()`/`loop()` del sketch. |
 | `puente_serial.py` | Puente HTTP opcional para navegadores sin Web Serial API. |
 | `ejemplos/demo_perfiles/` | Sketch aparte, solo para probar la biblioteca de perfiles aislada. |
+| `ejemplos/modo_manual/` | Sketch de diagnostico de hardware: no riega solo, la bomba se enciende con `1` y se apaga con `0` desde el Monitor Serial. |
+| `ejemplos/violeta_africana/` | Sketch minimo de un solo perfil (Violeta africana), sin protocolo ni EEPROM. |
 | `plantabot.html` | Interfaz de configuración y monitoreo (Web Serial API / puente HTTP). Un solo archivo, sin dependencias externas. |
 
 `plantas.h/.cpp`, `plantas_lib.ino`, `config_persistente.h/.cpp` y
