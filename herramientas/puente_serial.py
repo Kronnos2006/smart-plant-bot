@@ -16,7 +16,7 @@ Dependencias: pyserial (`pip install pyserial`) + solo biblioteca
 estandar (http.server, json, glob, threading, etc.).
 
 Uso:
-    python3 puente_serial.py [--puerto /dev/ttyACM0] [--http-puerto 8765]
+    python3 herramientas/puente_serial.py [--puerto /dev/ttyACM0] [--http-puerto 8765]
 
 Sin --puerto, autodetecta: prueba /dev/ttyACM* y /dev/ttyUSB* en
 Linux/Mac (un Arduino Uno usa el ATmega16U2 para USB y enumera como
