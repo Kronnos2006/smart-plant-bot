@@ -5,7 +5,7 @@ csv_a_header.py - Smart Plant Bot
 Regenera plantas.cpp a partir de datos/plantas.csv.
 
 Uso:
-    python3 csv_a_header.py
+    python3 herramientas/csv_a_header.py
 
 No tiene dependencias externas: solo biblioteca estandar de Python 3.
 
@@ -41,8 +41,9 @@ import csv
 import os
 import sys
 
-RUTA_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datos", "plantas.csv")
-RUTA_CPP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plantas.cpp")
+RAIZ_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RUTA_CSV = os.path.join(RAIZ_REPO, "datos", "plantas.csv")
+RUTA_CPP = os.path.join(RAIZ_REPO, "firmware", "smart_plant_bot", "plantas.cpp")
 
 TAM_NOMBRE_COMUN = 24       # char nombreComun[24]
 TAM_NOMBRE_CIENTIFICO = 32  # char nombreCientifico[32]
